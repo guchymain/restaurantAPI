@@ -1,0 +1,21 @@
+{
+  "name": "restaurant-management-system",
+  "version": "1.0.0",
+  "description": "Full-Stack Restaurant Management System",
+  "private": true,
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "start:backend": "npm --prefix backend start",
+    "test:backend": "npm --prefix backend test",
+    "db:migrate": "npm --prefix backend run db:migrate",
+    "db:seed": "npm --prefix backend run db:seed",
+    "db:migrate:undo": "npm --prefix backend run db:migrate:undo",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build",
+    "start:frontend": "npm --prefix frontend start",
+    "lint:frontend": "npm --prefix frontend run lint"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
