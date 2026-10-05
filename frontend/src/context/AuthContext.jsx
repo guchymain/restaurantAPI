@@ -89,12 +89,12 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Register handler - creates customer account WITHOUT logging in automatically
-  const register = async ({ name, email, phone, password }) => {
+  // Register handler - creates account (customer or staff) WITHOUT logging in automatically
+  const register = async ({ name, email, phone, password, role = "customer" }) => {
     setLoading(true);
     setAuthError(null);
     try {
-      const data = await authAPI.register({ name, email, phone, password });
+      const data = await authAPI.register({ name, email, phone, password, role });
       if (data?.user) {
         // User is not logged in immediately; must log in via login form
         return { success: true, user: data.user, message: data.message };

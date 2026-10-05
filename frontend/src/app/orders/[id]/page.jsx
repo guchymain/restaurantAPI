@@ -24,12 +24,25 @@ export default function OrderDetailsPage({ params }) {
   const unwrappedParams = use(params);
   const orderId = unwrappedParams.id;
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, isStaffOrAdmin } = useAuth();
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Staff status updater
+  const handleUpdateStatus = async (newStatus) => {
+    setActionLoading(true);
+    try {
+      const data = await ordersAPI.update(orderId, { status: newStatus });
+      setOrder(data.order || { ...order, status: newStatus });
+    } catch (err) {
+      alert(err.message || "Failed to update order status");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -203,7 +216,24 @@ export default function OrderDetailsPage({ params }) {
               </p>
             </div>
 
-            <div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5">
+              {isStaffOrAdmin && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-stone-500 dark:text-stone-400">Change Status:</span>
+                  <select
+                    value={order.status}
+                    disabled={actionLoading}
+                    onChange={(e) => handleUpdateStatus(e.target.value)}
+                    className="rounded-xl border border-stone-300 bg-stone-100 px-3 py-1.5 text-xs font-bold text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="preparing">Preparing</option>
+                    <option value="ready">Ready</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              )}
               <StatusBadge status={order.status} size="lg" />
             </div>
           </div>
@@ -298,7 +328,7 @@ export default function OrderDetailsPage({ params }) {
             <span>Order More Items</span>
           </Link>
 
-          {isPending && (
+          {!isStaffOrAdmin && isPending && (
             <button
               onClick={handleCancelOrder}
               disabled={actionLoading}

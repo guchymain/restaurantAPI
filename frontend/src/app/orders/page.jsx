@@ -15,11 +15,12 @@ import {
   Loader2,
   Lock,
   ArrowRight,
-  X
+  X,
+  ChefHat
 } from "lucide-react";
 
 export default function OrdersPage() {
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, isStaffOrAdmin } = useAuth();
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -27,6 +28,24 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
+
+  // Staff status updater (PUT /api/orders/:id)
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    setActionLoadingId(orderId);
+    try {
+      await ordersAPI.update(orderId, { status: newStatus });
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      );
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
+      }
+    } catch (err) {
+      alert(err.message || "Failed to update order status.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   // Strictly fetch orders ONLY when authenticated!
   useEffect(() => {
@@ -157,11 +176,14 @@ export default function OrdersPage() {
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-100">
-            My Orders & Tracking
+          <h1 className="font-serif text-3xl font-bold tracking-tight text-stone-900 dark:text-stone-100 flex items-center gap-2.5">
+            {isStaffOrAdmin && <ChefHat className="h-7 w-7 text-amber-600" />}
+            <span>{isStaffOrAdmin ? "Kitchen & Order Management" : "My Orders & Tracking"}</span>
           </h1>
           <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
-            {user ? `Showing orders for ${user.name} (${user.email}).` : "Loading your orders..."}
+            {isStaffOrAdmin
+              ? `Logged in as ${user?.role === "admin" ? "Admin" : "Staff Member"} (${user?.name}). Showing live restaurant kitchen orders.`
+              : user ? `Showing orders for ${user.name} (${user.email}).` : "Loading your orders..."}
           </p>
         </div>
 
@@ -290,6 +312,27 @@ export default function OrdersPage() {
 
                 {/* Right: Actions */}
                 <div className="flex flex-wrap items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-stone-200 dark:border-stone-850">
+                  {/* Staff status updater */}
+                  {isStaffOrAdmin && (
+                    <div className="flex items-center gap-1.5">
+                      <select
+                        value={order.status}
+                        disabled={actionLoadingId === order.id}
+                        onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
+                        className="rounded-xl border border-stone-300 bg-stone-100 px-2.5 py-1.5 text-xs font-semibold text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer disabled:opacity-50"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="preparing">Preparing</option>
+                        <option value="ready">Ready</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                      {actionLoadingId === order.id && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />
+                      )}
+                    </div>
+                  )}
+
                   {/* View Details Modal Trigger */}
                   <button
                     onClick={() => setSelectedOrder(order)}
@@ -308,7 +351,7 @@ export default function OrdersPage() {
                   </Link>
 
                   {/* Customer Cancel Button for pending orders */}
-                  {isPending && (
+                  {!isStaffOrAdmin && isPending && (
                     <button
                       onClick={() => handleCancelOrder(order.id)}
                       disabled={isProcessingAction}
@@ -396,21 +439,39 @@ export default function OrdersPage() {
             </div>
 
             {/* Modal Actions */}
-            <div className="mt-6 flex justify-end gap-2.5">
-              {selectedOrder.status === "pending" && (
-                <button
-                  type="button"
-                  onClick={() => handleCancelOrder(selectedOrder.id)}
-                  className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 cursor-pointer"
-                >
-                  Cancel Order
-                </button>
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-2.5">
+              {isStaffOrAdmin ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-stone-600 dark:text-stone-400">Status:</span>
+                  <select
+                    value={selectedOrder.status}
+                    disabled={actionLoadingId === selectedOrder.id}
+                    onChange={(e) => handleUpdateOrderStatus(selectedOrder.id, e.target.value)}
+                    className="rounded-xl border border-stone-300 bg-stone-100 px-3 py-1.5 text-xs font-semibold text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="preparing">Preparing</option>
+                    <option value="ready">Ready</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              ) : (
+                selectedOrder.status === "pending" && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancelOrder(selectedOrder.id)}
+                    className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300 cursor-pointer"
+                  >
+                    Cancel Order
+                  </button>
+                )
               )}
 
               <button
                 type="button"
                 onClick={() => setSelectedOrder(null)}
-                className="rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 dark:bg-amber-600 dark:hover:bg-amber-500 cursor-pointer"
+                className="rounded-xl bg-stone-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-stone-800 dark:bg-amber-600 dark:hover:bg-amber-500 cursor-pointer ml-auto"
               >
                 Close Receipt
               </button>

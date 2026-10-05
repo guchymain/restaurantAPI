@@ -13,9 +13,10 @@ export default function Navbar() {
   const { totalCount, openCart } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const isStaffOrAdmin = user?.role === "staff" || user?.role === "admin";
   const navLinks = [
     { name: "Menu", href: "/" },
-    { name: "My Orders", href: "/orders" },
+    { name: isStaffOrAdmin ? "Order Management" : "My Orders", href: "/orders" },
   ];
 
   return (
@@ -84,8 +85,8 @@ export default function Navbar() {
                 <span className="text-xs font-bold text-stone-900 dark:text-stone-100 line-clamp-1 max-w-[130px]">
                   {user?.name}
                 </span>
-                <span className="text-[11px] text-stone-500 dark:text-stone-400 font-medium">
-                  Customer
+                <span className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
+                  {user?.role === "admin" ? "Admin" : user?.role === "staff" ? "Staff" : "Customer"}
                 </span>
               </div>
               <button
@@ -141,7 +142,9 @@ export default function Navbar() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-bold text-stone-900 dark:text-stone-100">{user?.name}</p>
-                    <p className="text-xs text-stone-500 dark:text-stone-400">{user?.email}</p>
+                    <p className="text-xs text-stone-500 dark:text-stone-400">
+                      {user?.email} • {user?.role === "admin" ? "Admin" : user?.role === "staff" ? "Staff" : "Customer"}
+                    </p>
                   </div>
                   <button
                     onClick={() => {
@@ -161,7 +164,7 @@ export default function Navbar() {
                   className="flex items-center justify-center gap-2 w-full rounded-xl bg-amber-600 py-2.5 text-center text-xs font-bold text-white shadow-xs"
                 >
                   <User className="h-4 w-4" />
-                  <span>Customer Sign In / Register</span>
+                  <span>Sign In / Register</span>
                 </Link>
               )}
             </div>

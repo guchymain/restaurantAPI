@@ -13,7 +13,9 @@ import {
   Loader2,
   AlertCircle,
   UserCheck,
-  CheckCircle2
+  CheckCircle2,
+  ChefHat,
+  ShieldCheck
 } from "lucide-react";
 import Link from "next/link";
 
@@ -30,7 +32,8 @@ export default function LoginPage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
-  // Register form state (customer only)
+  // Register form state
+  const [regRole, setRegRole] = useState("customer"); // 'customer' | 'staff'
   const [name, setName] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -71,6 +74,7 @@ export default function LoginPage() {
       email: regEmail,
       phone,
       password: regPassword,
+      role: regRole,
     });
     setLoading(false);
 
@@ -83,37 +87,74 @@ export default function LoginPage() {
       setPhone("");
       setRegPassword("");
       setMode("login");
-      setSuccessMessage("Account created successfully! Please sign in with your email and password.");
+      const roleLabel = regRole === "staff" ? "Staff Member" : "Customer";
+      setSuccessMessage(`Account created successfully as ${roleLabel}! Please sign in with your email and password.`);
     } else {
       setErrorMessage(result.error || "Registration failed. Please try again.");
     }
   };
 
   if (isAuthenticated && user) {
+    const isStaffOrAdmin = user.role === "staff" || user.role === "admin";
+    const roleLabel = user.role === "admin" ? "Administrator" : user.role === "staff" ? "Staff Member" : "Customer";
+
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
         <div className="rounded-3xl border border-stone-200 bg-stone-100 p-8 shadow-sm dark:border-stone-850 dark:bg-stone-950">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-            <UserCheck className="h-7 w-7" />
+            {user.role === "staff" ? <ChefHat className="h-7 w-7" /> : user.role === "admin" ? <ShieldCheck className="h-7 w-7" /> : <UserCheck className="h-7 w-7" />}
           </div>
           <h2 className="mt-4 font-serif text-2xl font-bold text-stone-900 dark:text-stone-100">
             Welcome back, {user.name}
           </h2>
-          <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">
+          <div className="mt-2 flex items-center justify-center">
+            <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300">
+              {user.role === "staff" ? <ChefHat className="h-3.5 w-3.5" /> : user.role === "admin" ? <ShieldCheck className="h-3.5 w-3.5" /> : <User className="h-3.5 w-3.5" />}
+              <span>{roleLabel}</span>
+            </span>
+          </div>
+          <p className="mt-2 text-xs text-stone-600 dark:text-stone-400">
             You are currently signed in with <strong className="text-stone-900 dark:text-stone-200">{user.email}</strong>.
           </p>
 
           <div className="mt-8 flex flex-col gap-3">
-            <Link
-              href="/"
-              className="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition-colors"
-            >
-              <span>Explore Menu & Order</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+            {isStaffOrAdmin ? (
+              <>
+                <Link
+                  href="/orders"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition-colors"
+                >
+                  <ChefHat className="h-3.5 w-3.5" />
+                  <span>Manage Kitchen Orders</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-stone-100 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-200/60 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900 transition-colors"
+                >
+                  <span>View Restaurant Menu</span>
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition-colors"
+                >
+                  <span>Explore Menu & Order</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                <Link
+                  href="/orders"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-stone-100 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-200/60 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900 transition-colors"
+                >
+                  <span>My Orders</span>
+                </Link>
+              </>
+            )}
             <button
               onClick={logout}
-              className="rounded-xl border border-stone-300 bg-stone-100 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-200/60 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900 transition-colors"
+              className="rounded-xl border border-stone-300 bg-stone-100 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-200/60 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900 transition-colors cursor-pointer"
             >
               Sign Out
             </button>
@@ -132,12 +173,12 @@ export default function LoginPage() {
             <UtensilsCrossed className="h-6 w-6" />
           </div>
           <h1 className="font-serif text-2xl font-bold tracking-tight text-white">
-            Customer Portal
+            Restaurant Portal
           </h1>
           <p className="mt-1 text-xs text-stone-300 dark:text-stone-400 max-w-xs mx-auto">
             {mode === "login"
-              ? "Sign in to place orders, track kitchen preparation, and view receipts."
-              : "Register your customer account to start ordering."}
+              ? "Sign in to access customer orders or staff kitchen controls."
+              : "Register an account to place orders as customer or manage as staff."}
           </p>
         </div>
 
@@ -171,7 +212,7 @@ export default function LoginPage() {
                 : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
             }`}
           >
-            Create Customer Account
+            Create Account
           </button>
         </div>
 
@@ -257,12 +298,50 @@ export default function LoginPage() {
                   }}
                   className="text-xs text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-100 underline font-medium"
                 >
-                  New customer? Create an account
+                  New here? Create customer or staff account
                 </button>
               </div>
             </form>
           ) : (
             <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+              {/* Account Role Selector */}
+              <div>
+                <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 mb-1.5">
+                  Account Role
+                </label>
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-stone-200/60 dark:bg-stone-900 border border-stone-300 dark:border-stone-800">
+                  <button
+                    type="button"
+                    onClick={() => setRegRole("customer")}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      regRole === "customer"
+                        ? "bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-white shadow-2xs border border-stone-300/80 dark:border-stone-700"
+                        : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <User className="h-3.5 w-3.5" />
+                    <span>Customer</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRegRole("staff")}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      regRole === "staff"
+                        ? "bg-stone-100 dark:bg-stone-950 text-stone-900 dark:text-white shadow-2xs border border-stone-300/80 dark:border-stone-700"
+                        : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <ChefHat className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                    <span>Staff Member</span>
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-stone-500 dark:text-stone-400">
+                  {regRole === "customer"
+                    ? "Customer accounts can browse dishes, place orders, and track preparation."
+                    : "Staff accounts can view kitchen orders, update prep status, and review receipts."}
+                </p>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-stone-800 dark:text-stone-200 mb-1.5">
                   Full Name
@@ -343,7 +422,7 @@ export default function LoginPage() {
                   </>
                 ) : (
                   <>
-                    <span>Create Customer Account</span>
+                    <span>{regRole === "staff" ? "Create Staff Account" : "Create Customer Account"}</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
