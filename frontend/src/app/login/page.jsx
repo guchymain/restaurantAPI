@@ -121,18 +121,18 @@ export default function LoginPage() {
             {isStaffOrAdmin ? (
               <>
                 <Link
-                  href="/orders"
+                  href="/staff/menu"
                   className="flex items-center justify-center gap-2 rounded-xl bg-amber-600 py-3 text-xs font-bold text-white shadow-xs hover:bg-amber-700 transition-colors"
                 >
                   <ChefHat className="h-3.5 w-3.5" />
-                  <span>Manage Kitchen Orders</span>
+                  <span>Manage Menu & Categories</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
                 <Link
-                  href="/"
+                  href="/orders"
                   className="flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-stone-100 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-200/60 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900 transition-colors"
                 >
-                  <span>View Restaurant Menu</span>
+                  <span>Track Kitchen Orders</span>
                 </Link>
               </>
             ) : (
@@ -149,6 +149,12 @@ export default function LoginPage() {
                   className="flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-stone-100 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-200/60 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900 transition-colors"
                 >
                   <span>My Orders</span>
+                </Link>
+                <Link
+                  href="/profile"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-stone-300 bg-stone-100 py-2.5 text-xs font-semibold text-stone-700 hover:bg-stone-200/60 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-300 dark:hover:bg-stone-900 transition-colors"
+                >
+                  <span>My Profile & Settings</span>
                 </Link>
               </>
             )}

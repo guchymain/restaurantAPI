@@ -16,9 +16,9 @@ const {
 
 router.get("/", optionalAuthenticate, getOrders)
 router.get("/:id", optionalAuthenticate, validate(idParamSchema, "params"), getOrder)
-router.get("/:id/items", validate(idParamSchema, "params"), getOrderItems)
+router.get("/:id/items", optionalAuthenticate, validate(idParamSchema, "params"), getOrderItems)
 router.post("/", optionalAuthenticate, validate(createOrderSchema), addOrder)
-router.put("/:id", validate(idParamSchema, "params"), validate(updateOrderSchema), updateOrder)
-router.delete("/:id", validate(idParamSchema, "params"), deleteOrder)
+router.put("/:id", optionalAuthenticate, validate(idParamSchema, "params"), validate(updateOrderSchema), updateOrder)
+router.delete("/:id", optionalAuthenticate, validate(idParamSchema, "params"), deleteOrder)
 
 module.exports = router

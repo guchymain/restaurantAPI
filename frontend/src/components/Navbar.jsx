@@ -16,7 +16,9 @@ export default function Navbar() {
   const isStaffOrAdmin = user?.role === "staff" || user?.role === "admin";
   const navLinks = [
     { name: "Menu", href: "/" },
-    { name: isStaffOrAdmin ? "Order Management" : "My Orders", href: "/orders" },
+    { name: isStaffOrAdmin ? "Order Tracking" : "My Orders", href: "/orders" },
+    ...(isStaffOrAdmin ? [{ name: "Manage Menu", href: "/staff/menu" }] : []),
+    ...(isAuthenticated ? [{ name: "Profile", href: "/profile" }] : []),
   ];
 
   return (
@@ -81,14 +83,14 @@ export default function Navbar() {
           {/* User Account / Auth */}
           {isAuthenticated ? (
             <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-stone-300/80 dark:border-stone-800">
-              <div className="flex flex-col items-end">
+              <Link href="/profile" className="flex flex-col items-end hover:opacity-80 transition-opacity">
                 <span className="text-xs font-bold text-stone-900 dark:text-stone-100 line-clamp-1 max-w-[130px]">
                   {user?.name}
                 </span>
                 <span className="text-[11px] text-amber-700 dark:text-amber-400 font-semibold">
                   {user?.role === "admin" ? "Admin" : user?.role === "staff" ? "Staff" : "Customer"}
                 </span>
-              </div>
+              </Link>
               <button
                 onClick={logout}
                 title="Log Out"

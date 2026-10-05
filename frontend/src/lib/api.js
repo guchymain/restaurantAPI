@@ -65,6 +65,22 @@ export const authAPI = {
   },
 };
 
+// User Profile Endpoints
+export const usersAPI = {
+  getById: async (id) => {
+    const res = await api.get(`/users/${id}`);
+    return res.data;
+  },
+  update: async (id, data) => {
+    const res = await api.put(`/users/${id}`, data);
+    return res.data;
+  },
+  delete: async (id) => {
+    const res = await api.delete(`/users/${id}`);
+    return res.data;
+  },
+};
+
 // Categories Endpoints
 export const categoriesAPI = {
   getAll: async () => {
@@ -73,6 +89,18 @@ export const categoriesAPI = {
   },
   getById: async (id) => {
     const res = await api.get(`/categories/${id}`);
+    return res.data;
+  },
+  create: async (data) => {
+    const res = await api.post("/categories", data);
+    return res.data;
+  },
+  update: async (id, data) => {
+    const res = await api.put(`/categories/${id}`, data);
+    return res.data;
+  },
+  delete: async (id) => {
+    const res = await api.delete(`/categories/${id}`);
     return res.data;
   },
 };
@@ -85,6 +113,18 @@ export const menuItemsAPI = {
   },
   getById: async (id) => {
     const res = await api.get(`/menu-items/${id}`);
+    return res.data;
+  },
+  create: async (data) => {
+    const res = await api.post("/menu-items", data);
+    return res.data;
+  },
+  update: async (id, data) => {
+    const res = await api.put(`/menu-items/${id}`, data);
+    return res.data;
+  },
+  delete: async (id) => {
+    const res = await api.delete(`/menu-items/${id}`);
     return res.data;
   },
 };

@@ -29,24 +29,6 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
-  // Staff status updater (PUT /api/orders/:id)
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
-    setActionLoadingId(orderId);
-    try {
-      await ordersAPI.update(orderId, { status: newStatus });
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-      );
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder((prev) => (prev ? { ...prev, status: newStatus } : null));
-      }
-    } catch (err) {
-      alert(err.message || "Failed to update order status.");
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
   // Strictly fetch orders ONLY when authenticated!
   useEffect(() => {
     let ignore = false;
@@ -312,31 +294,10 @@ export default function OrdersPage() {
 
                 {/* Right: Actions */}
                 <div className="flex flex-wrap items-center gap-2 pt-3 md:pt-0 border-t md:border-t-0 border-stone-200 dark:border-stone-850">
-                  {/* Staff status updater */}
-                  {isStaffOrAdmin && (
-                    <div className="flex items-center gap-1.5">
-                      <select
-                        value={order.status}
-                        disabled={actionLoadingId === order.id}
-                        onChange={(e) => handleUpdateOrderStatus(order.id, e.target.value)}
-                        className="rounded-xl border border-stone-300 bg-stone-100 px-2.5 py-1.5 text-xs font-semibold text-stone-800 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer disabled:opacity-50"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="preparing">Preparing</option>
-                        <option value="ready">Ready</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                      {actionLoadingId === order.id && (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-600" />
-                      )}
-                    </div>
-                  )}
-
                   {/* View Details Modal Trigger */}
                   <button
                     onClick={() => setSelectedOrder(order)}
-                    className="flex items-center gap-1.5 rounded-xl border border-stone-300 bg-stone-100 px-3.5 py-2 text-xs font-bold text-stone-800 hover:bg-stone-200/60 dark:border-stone-800 dark:bg-stone-950 dark:text-stone-200 dark:hover:bg-stone-900 transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 rounded-xl border border-stone-300 bg-stone-100 px-3.5 py-2 text-xs font-bold text-stone-800 hover:bg-stone-200/60 dark:border-stone-850 dark:bg-stone-950 dark:text-stone-200 dark:hover:bg-stone-900 transition-colors cursor-pointer"
                   >
                     <Eye className="h-3.5 w-3.5 text-stone-500" />
                     <span>View Receipt</span>

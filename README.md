@@ -11,6 +11,7 @@ A full-stack restaurant management platform featuring an Express/PostgreSQL REST
 - [System Architecture & Database Schema](#system-architecture--database-schema)
 - [Backend Features & Security](#backend-features--security)
 - [Frontend Features & UI Experience](#frontend-features--ui-experience)
+- [Presentation & Demo Script](#presentation--demo-script)
 - [Complete API Reference](#complete-api-reference)
 - [Project Directory Structure](#project-directory-structure)
 - [Installation & Setup](#installation--setup)
@@ -151,23 +152,39 @@ The database model is built on PostgreSQL with strict relational integrity and c
 ## Frontend Features & UI Experience
 
 1. **Dynamic Menu Browsing:**
-   - All categories and dishes are fetched dynamically from the database (`GET /api/categories`, `GET /api/menu`). No hardcoded items.
+   - All categories and dishes are fetched dynamically from the database (`GET /api/categories`, `GET /api/menu-items`). No hardcoded items.
    - Real-time instant search by dish name or description.
    - Category filter pills for rapid menu filtering.
 2. **Interactive Cart Slide-Over:**
    - Quantity stepper (+/-), remove item, clear cart, and live order summary calculations.
    - Persisted across navigation within `CartContext`.
-3. **Customer Authentication:**
-   - Registration and sign-in dedicated strictly to customers (staff/admin controls are decoupled).
-   - Automatic JWT token management and localStorage persistence.
-4. **Orders & Receipt Tracking:**
-   - Authenticated-only orders view (`/orders` and `/orders/:id`).
+3. **Customer Profile Management (`/profile`):**
+   - View account details (ID, name, email, phone, role, member date).
+   - Edit personal contact info and update password.
+   - Danger zone account deletion with confirmation.
+4. **Staff Menu & Category Management (`/staff/menu`):**
+   - Protected dashboard for staff and administrators.
+   - Create, update, and delete categories with validation.
+   - Create, update, and delete menu items (with category selector, price, and kitchen availability toggle).
+5. **Orders & Receipt Tracking (`/orders` & `/orders/:id`):**
+   - Authenticated-only orders view.
    - Live order status badges: `pending`, `preparing`, `ready`, `completed`, `cancelled`.
    - Itemized digital receipt modal and single-order view.
    - Customer-initiated order cancellation for pending orders.
-5. **Harmonious Theme Design:**
+   - Staff order tracking is strictly read-only (staff cannot update or delete orders).
+6. **Harmonious Theme Design:**
    - Synchronized warm neutral tones (`bg-stone-100 dark:bg-stone-950`).
    - Cards, navbar, and cart backgrounds blend seamlessly with the page surface.
+
+---
+
+## Presentation & Demo Script
+
+For evaluators, instructors, and live project presentations, an extensive 10-point presentation playbook is provided in [`script.md`](./script.md). It provides:
+- **Speaking Notes:** Exact talking points explaining database architecture, ACID transactions, and security.
+- **Live UI Demo Paths:** Step-by-step instructions for demonstrating staff menu management, customer cart checkout, and receipt tracking.
+- **CLI Commands:** Terminal `psql` and cURL commands for demonstrating database relations and API responses.
+- **End-to-End Diagram:** Mermaid sequence diagram tracing data flow from PostgreSQL $\to$ Sequelize $\to$ Express $\to$ Axios $\to$ React.
 
 ---
 
@@ -178,41 +195,41 @@ All API routes are prefixed with `/api`.
 ### Authentication & Users
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/register` | Public | Register customer account and obtain JWT |
+| `POST` | `/api/auth/register` | Public | Register customer or staff account |
 | `POST` | `/api/auth/login` | Public | Authenticate user and receive JWT |
-| `GET` | `/api/auth/me` | Authenticated | Retrieve current user profile |
+| `GET` | `/api/auth/me` | Authenticated | Retrieve authenticated user profile |
 | `GET` | `/api/users` | Admin / Staff | List all users |
-| `GET` | `/api/users/:id` | Authenticated | Get user profile by ID |
-| `PUT` | `/api/users/:id` | Authenticated | Update user information |
-| `DELETE`| `/api/users/:id` | Admin | Delete user account (cascades orders) |
+| `GET` | `/api/users/:id` | Authenticated | Get user profile by ID (Customer can only view own) |
+| `PUT` | `/api/users/:id` | Authenticated | Update user info (Customer can only update own) |
+| `DELETE`| `/api/users/:id` | Authenticated | Delete account (Customer can only delete own; Admin can delete any) |
 
 ### Categories
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/categories` | Public | List all culinary categories |
-| `GET` | `/api/categories/:id` | Public | Get single category with its menu items |
-| `POST` | `/api/categories` | Admin | Create new category (unique name required) |
-| `PUT` | `/api/categories/:id` | Admin | Update category name or description |
-| `DELETE`| `/api/categories/:id` | Admin | Delete category (restricted if items exist) |
+| `GET` | `/api/categories/:id` | Public | Get single category with details |
+| `POST` | `/api/categories` | Staff / Admin | Create new category (unique name required) |
+| `PUT` | `/api/categories/:id` | Staff / Admin | Update category name or description |
+| `DELETE`| `/api/categories/:id` | Staff / Admin | Delete category (restricted if dishes exist) |
 
 ### Menu Items
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/menu` | Public | List all menu items (filter by `?categoryId=`) |
-| `GET` | `/api/menu/:id` | Public | Retrieve single menu item details |
-| `POST` | `/api/menu` | Admin | Add new dish to menu |
-| `PUT` | `/api/menu/:id` | Admin | Update dish details, price, or availability |
-| `DELETE`| `/api/menu/:id` | Admin | Delete menu item (restricted if part of orders) |
+| `GET` | `/api/menu-items` | Public | List all menu items (filter by `?categoryId=`) |
+| `GET` | `/api/menu-items/:id` | Public | Retrieve single menu item details |
+| `POST` | `/api/menu-items` | Staff / Admin | Add new dish to menu |
+| `PUT` | `/api/menu-items/:id` | Staff / Admin | Update dish details, price, or availability |
+| `DELETE`| `/api/menu-items/:id` | Staff / Admin | Delete menu item (restricted if part of orders) |
 
 ### Orders
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/orders` | Authenticated | Create order with items (transactional) |
-| `GET` | `/api/orders` | Authenticated | List customer's orders (filter by `?status=`) |
+| `POST` | `/api/orders` | Authenticated | Create order with items (atomic transaction) |
+| `GET` | `/api/orders` | Authenticated | List orders (Customer: own orders; Staff/Admin: all orders) |
 | `GET` | `/api/orders/:id` | Authenticated | Get single order with complete itemized receipt |
 | `GET` | `/api/orders/:id/items` | Authenticated | Retrieve line items for a specific order |
-| `PUT` | `/api/orders/:id` | Authenticated | Update order status or line items |
-| `DELETE`| `/api/orders/:id` | Authenticated | Cancel / delete order (cascades line items) |
+| `PUT` | `/api/orders/:id` | Admin | Update order status (Staff cannot update) |
+| `DELETE`| `/api/orders/:id` | Authenticated | Cancel pending order (Customer: own pending order; Staff cannot delete) |
 
 ---
 
@@ -220,6 +237,7 @@ All API routes are prefixed with `/api`.
 
 ```text
 RestaurantAssignment/
+├── script.md                          # Comprehensive 10-point presentation & demo script
 ├── backend/                           # Express & PostgreSQL Backend
 │   ├── config/
 │   │   └── config.js                  # Database credentials & dialect configuration
@@ -256,7 +274,9 @@ RestaurantAssignment/
 │   │   │   ├── globals.css            # Synchronized background color tokens
 │   │   │   ├── layout.jsx             # Root layout with Navbar, CartDrawer, and Footer
 │   │   │   ├── page.jsx               # Menu page with real-time search & filters
-│   │   │   ├── login/page.jsx         # Customer Sign In & Registration portal
+│   │   │   ├── login/page.jsx         # Customer & Staff Sign In & Registration portal
+│   │   │   ├── profile/page.jsx       # Customer profile management & account deletion
+│   │   │   ├── staff/menu/page.jsx    # Staff category & menu CRUD dashboard
 │   │   │   ├── orders/page.jsx        # Protected order history & receipt view
 │   │   │   └── orders/[id]/page.jsx   # Detailed order tracking & status view
 │   │   ├── components/
@@ -266,7 +286,7 @@ RestaurantAssignment/
 │   │   │   ├── CategoryTabs.jsx       # Dynamic category filtering tabs
 │   │   │   └── StatusBadge.jsx        # Order status badges with dark mode support
 │   │   ├── context/
-│   │   │   ├── AuthContext.jsx        # Customer auth state & token persistence
+│   │   │   ├── AuthContext.jsx        # Auth state & token persistence
 │   │   │   └── CartContext.jsx        # Cart state & item management
 │   │   └── lib/
 │   │       └── api.js                 # Axios client with JWT interceptor

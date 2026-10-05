@@ -1,9 +1,14 @@
 const assert = require("node:assert")
 const http = require("node:http")
 const path = require("node:path")
+const jwt = require("jsonwebtoken")
 require("dotenv").config({ path: path.resolve(__dirname, "../.env"), quiet: true })
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || "testsecret123456"
+
+const staffAuthHeaders = { Authorization: `Bearer ${jwt.sign({ id: 2, role: "staff" }, process.env.JWT_SECRET)}` }
+const customerAuthHeaders = { Authorization: `Bearer ${jwt.sign({ id: 3, role: "customer" }, process.env.JWT_SECRET)}` }
+const adminAuthHeaders = { Authorization: `Bearer ${jwt.sign({ id: 1, role: "admin" }, process.env.JWT_SECRET)}` }
 
 const app = require("../src/app")
 const { Users, Categories, Menu_items, Orders, Order_items, sequelize } = require("../models")
@@ -98,17 +103,27 @@ const runTests = async () => {
 
     // 3. Category CRUD
     console.log("\nTesting Category CRUD...")
-    // Create
+    // Customer cannot create category (403)
+    const custCreateCatRes = await makeRequest({
+      method: "POST",
+      path: "/api/categories",
+      body: { name: "Forbidden Desserts", description: "Sweet treats and pastries" },
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custCreateCatRes.status, 403)
+
+    // Staff can create category (201)
     const createCatRes = await makeRequest({
       method: "POST",
       path: "/api/categories",
-      body: { name: "Desserts", description: "Sweet treats and pastries" }
+      body: { name: "Desserts", description: "Sweet treats and pastries" },
+      headers: staffAuthHeaders
     })
     assert.strictEqual(createCatRes.status, 201)
     const newCatId = createCatRes.body.category.id
     assert.strictEqual(createCatRes.body.category.name, "Desserts")
 
-    // Get all
+    // Get all (Customer/Public can read)
     const getCatsRes = await makeRequest({ path: "/api/categories" })
     assert.strictEqual(getCatsRes.status, 200)
     assert(getCatsRes.body.categories.some((c) => c.id === newCatId))
@@ -118,33 +133,67 @@ const runTests = async () => {
     assert.strictEqual(getCatRes.status, 200)
     assert.strictEqual(getCatRes.body.category.name, "Desserts")
 
-    // Update
+    // Customer cannot update category (403)
+    const custUpdateCatRes = await makeRequest({
+      method: "PUT",
+      path: `/api/categories/${newCatId}`,
+      body: { description: "Updated dessert description" },
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custUpdateCatRes.status, 403)
+
+    // Staff can update category
     const updateCatRes = await makeRequest({
       method: "PUT",
       path: `/api/categories/${newCatId}`,
-      body: { description: "Updated dessert description" }
+      body: { description: "Updated dessert description" },
+      headers: staffAuthHeaders
     })
     assert.strictEqual(updateCatRes.status, 200)
     assert.strictEqual(updateCatRes.body.category.description, "Updated dessert description")
 
-    // Delete unused category
+    // Customer cannot delete category (403)
+    const custDeleteCatRes = await makeRequest({
+      method: "DELETE",
+      path: `/api/categories/${newCatId}`,
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custDeleteCatRes.status, 403)
+
+    // Staff can delete unused category
     const deleteCatRes = await makeRequest({
       method: "DELETE",
-      path: `/api/categories/${newCatId}`
+      path: `/api/categories/${newCatId}`,
+      headers: staffAuthHeaders
     })
     assert.strictEqual(deleteCatRes.status, 200)
 
     // Cannot delete category with menu items (Category 1 has Burgers)
     const deleteUsedCatRes = await makeRequest({
       method: "DELETE",
-      path: "/api/categories/1"
+      path: "/api/categories/1",
+      headers: staffAuthHeaders
     })
     assert.strictEqual(deleteUsedCatRes.status, 409)
-    console.log("✓ Category CRUD and foreign key constraints verified")
+    console.log("✓ Category CRUD, role permissions, and foreign key constraints verified")
 
     // 4. Menu Items CRUD
     console.log("\nTesting Menu Items CRUD...")
-    // Create menu item with non-existent categoryId should fail 404
+    // Customer cannot create menu item (403)
+    const custCreateItemRes = await makeRequest({
+      method: "POST",
+      path: "/api/menu-items",
+      body: {
+        name: "Forbidden Taco",
+        description: "Not allowed",
+        price: 9.99,
+        categoryId: 1
+      },
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custCreateItemRes.status, 403)
+
+    // Create menu item with non-existent categoryId should fail 404 (with staff auth)
     const invalidCatItemRes = await makeRequest({
       method: "POST",
       path: "/api/menu-items",
@@ -153,11 +202,12 @@ const runTests = async () => {
         description: "Not available",
         price: 9.99,
         categoryId: 9999
-      }
+      },
+      headers: staffAuthHeaders
     })
     assert.strictEqual(invalidCatItemRes.status, 404)
 
-    // Create valid menu item
+    // Create valid menu item as staff
     const createItemRes = await makeRequest({
       method: "POST",
       path: "/api/menu-items",
@@ -166,12 +216,13 @@ const runTests = async () => {
         description: "Juicy beef patty with crispy bacon and melted cheddar",
         price: 15.50,
         categoryId: 1
-      }
+      },
+      headers: staffAuthHeaders
     })
     assert.strictEqual(createItemRes.status, 201)
     const newItemId = createItemRes.body.menuItem.id
 
-    // Get all
+    // Get all (Customer/Public can read)
     const getItemsRes = await makeRequest({ path: "/api/menu-items" })
     assert.strictEqual(getItemsRes.status, 200)
     assert(getItemsRes.body.menuItems.some((i) => i.id === newItemId))
@@ -186,29 +237,49 @@ const runTests = async () => {
     assert.strictEqual(getItemRes.status, 200)
     assert.strictEqual(getItemRes.body.menuItem.name, "Double Bacon Burger")
 
-    // Update
+    // Customer cannot update menu item (403)
+    const custUpdateItemRes = await makeRequest({
+      method: "PUT",
+      path: `/api/menu-items/${newItemId}`,
+      body: { price: 99.99 },
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custUpdateItemRes.status, 403)
+
+    // Staff can update menu item
     const updateItemRes = await makeRequest({
       method: "PUT",
       path: `/api/menu-items/${newItemId}`,
-      body: { price: 16.50 }
+      body: { price: 16.50 },
+      headers: staffAuthHeaders
     })
     assert.strictEqual(updateItemRes.status, 200)
     assert.strictEqual(updateItemRes.body.menuItem.price, 16.50)
 
-    // Delete item not in any order
+    // Customer cannot delete menu item (403)
+    const custDeleteItemRes = await makeRequest({
+      method: "DELETE",
+      path: `/api/menu-items/${newItemId}`,
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custDeleteItemRes.status, 403)
+
+    // Staff can delete item not in any order
     const deleteItemRes = await makeRequest({
       method: "DELETE",
-      path: `/api/menu-items/${newItemId}`
+      path: `/api/menu-items/${newItemId}`,
+      headers: staffAuthHeaders
     })
     assert.strictEqual(deleteItemRes.status, 200)
 
     // Deleting item in existing order (Item 1 is in Order 1) should return 409
     const deleteOrderedItemRes = await makeRequest({
       method: "DELETE",
-      path: "/api/menu-items/1"
+      path: "/api/menu-items/1",
+      headers: staffAuthHeaders
     })
     assert.strictEqual(deleteOrderedItemRes.status, 409)
-    console.log("✓ Menu Item CRUD and foreign key constraints verified")
+    console.log("✓ Menu Item CRUD, role permissions, and foreign key constraints verified")
 
     // 5. User CRUD
     console.log("\nTesting User CRUD...")
@@ -227,6 +298,7 @@ const runTests = async () => {
     assert.strictEqual(createUserRes.status, 201)
     const newUserId = createUserRes.body.user.id
     assert.strictEqual(createUserRes.body.user.password, undefined, "Password must NEVER be returned in response")
+    const aliceAuthHeaders = { Authorization: `Bearer ${jwt.sign({ id: newUserId, role: "customer" }, process.env.JWT_SECRET)}` }
 
     // Duplicate email
     const duplicateUserRes = await makeRequest({
@@ -242,38 +314,61 @@ const runTests = async () => {
     assert.strictEqual(duplicateUserRes.status, 409)
 
     // Get all users
-    const getUsersRes = await makeRequest({ path: "/api/users" })
+    const getUsersRes = await makeRequest({ path: "/api/users", headers: adminAuthHeaders })
     assert.strictEqual(getUsersRes.status, 200)
     assert(getUsersRes.body.users.some((u) => u.id === newUserId))
     getUsersRes.body.users.forEach((u) => {
       assert.strictEqual(u.password, undefined, "User in list must not contain password")
     })
 
-    // Get single user
-    const getUserRes = await makeRequest({ path: `/api/users/${newUserId}` })
+    // Another customer cannot view Alice's profile (403)
+    const custOtherUserRes = await makeRequest({ path: `/api/users/${newUserId}`, headers: customerAuthHeaders })
+    assert.strictEqual(custOtherUserRes.status, 403)
+
+    // Alice can view her own details (200)
+    const getUserRes = await makeRequest({ path: `/api/users/${newUserId}`, headers: aliceAuthHeaders })
     assert.strictEqual(getUserRes.status, 200)
     assert.strictEqual(getUserRes.body.user.name, "Alice Smith")
     assert.strictEqual(getUserRes.body.user.password, undefined, "Single user must not contain password")
 
-    // Update user
+    // Another customer cannot update Alice's profile (403)
+    const custOtherUpdateRes = await makeRequest({
+      method: "PUT",
+      path: `/api/users/${newUserId}`,
+      body: { name: "Hacked Alice" },
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custOtherUpdateRes.status, 403)
+
+    // Alice can update her own profile (200)
     const updateUserRes = await makeRequest({
       method: "PUT",
       path: `/api/users/${newUserId}`,
-      body: { name: "Alice Johnson" }
+      body: { name: "Alice Johnson" },
+      headers: aliceAuthHeaders
     })
     assert.strictEqual(updateUserRes.status, 200)
     assert.strictEqual(updateUserRes.body.user.name, "Alice Johnson")
     assert.strictEqual(updateUserRes.body.user.password, undefined, "Updated user must not contain password")
 
-    // Delete user
+    // Another customer cannot delete Alice's profile (403)
+    const custOtherDeleteRes = await makeRequest({
+      method: "DELETE",
+      path: `/api/users/${newUserId}`,
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custOtherDeleteRes.status, 403)
+
+    // Alice can delete her own profile (200)
     const deleteUserRes = await makeRequest({
       method: "DELETE",
-      path: `/api/users/${newUserId}`
+      path: `/api/users/${newUserId}`,
+      headers: aliceAuthHeaders
     })
     assert.strictEqual(deleteUserRes.status, 200)
     assert.strictEqual(deleteUserRes.body.user.name, "Alice Johnson")
     assert.strictEqual(deleteUserRes.body.user.password, undefined, "Deleted user must not contain password")
-    console.log("✓ User CRUD verified successfully and passwords never leaked")
+    console.log("✓ User CRUD, ownership permissions, and security verified successfully")
 
     // 6. Orders & Order Items
     console.log("\nTesting Orders and Order Items Integration with PostgreSQL...")
@@ -290,7 +385,8 @@ const runTests = async () => {
           { menuItemId: 1, quantity: 3 },
           { menuItemId: 3, quantity: 2 }
         ]
-      }
+      },
+      headers: customerAuthHeaders
     })
     assert.strictEqual(createOrderRes.status, 201)
     const newOrderId = createOrderRes.body.order.id
@@ -308,40 +404,89 @@ const runTests = async () => {
     assert.strictEqual(directItems[1].quantity, 2)
     assert.strictEqual(directItems[1].subtotal, 6.00)
 
-    // Get all orders
-    const getOrdersRes = await makeRequest({ path: "/api/orders" })
-    assert.strictEqual(getOrdersRes.status, 200)
-    assert(getOrdersRes.body.orders.some((o) => o.id === newOrderId))
+    // Staff can track all orders (200)
+    const staffGetOrdersRes = await makeRequest({ path: "/api/orders", headers: staffAuthHeaders })
+    assert.strictEqual(staffGetOrdersRes.status, 200)
+    assert(staffGetOrdersRes.body.orders.some((o) => o.id === newOrderId))
 
-    // Get single order
-    const getOrderRes = await makeRequest({ path: `/api/orders/${newOrderId}` })
+    // Customer only sees their own orders
+    const custOrdersRes = await makeRequest({ path: "/api/orders", headers: customerAuthHeaders })
+    assert.strictEqual(custOrdersRes.status, 200)
+    assert(custOrdersRes.body.orders.every((o) => o.userId === 3))
+
+    // Get single order as customer
+    const getOrderRes = await makeRequest({ path: `/api/orders/${newOrderId}`, headers: customerAuthHeaders })
     assert.strictEqual(getOrderRes.status, 200)
     assert.strictEqual(getOrderRes.body.order.id, newOrderId)
     assert.strictEqual(getOrderRes.body.order.items.length, 2)
 
+    // Staff can view order details (tracking)
+    const staffGetOrderRes = await makeRequest({ path: `/api/orders/${newOrderId}`, headers: staffAuthHeaders })
+    assert.strictEqual(staffGetOrderRes.status, 200)
+    assert.strictEqual(staffGetOrderRes.body.order.id, newOrderId)
+
     // Get order items subroute
-    const getOrderItemsRes = await makeRequest({ path: `/api/orders/${newOrderId}/items` })
+    const getOrderItemsRes = await makeRequest({ path: `/api/orders/${newOrderId}/items`, headers: customerAuthHeaders })
     assert.strictEqual(getOrderItemsRes.status, 200)
     assert.strictEqual(getOrderItemsRes.body.items.length, 2)
 
-    // Update order status
+    // Staff CANNOT update order status (403)
+    const staffUpdateOrderRes = await makeRequest({
+      method: "PUT",
+      path: `/api/orders/${newOrderId}`,
+      body: { status: "preparing" },
+      headers: staffAuthHeaders
+    })
+    assert.strictEqual(staffUpdateOrderRes.status, 403)
+
+    // Customer CANNOT update order status directly (403)
+    const custUpdateOrderRes = await makeRequest({
+      method: "PUT",
+      path: `/api/orders/${newOrderId}`,
+      body: { status: "preparing" },
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custUpdateOrderRes.status, 403)
+
+    // Admin CAN update order status (200)
     const updateOrderRes = await makeRequest({
       method: "PUT",
       path: `/api/orders/${newOrderId}`,
-      body: { status: "preparing" }
+      body: { status: "preparing" },
+      headers: adminAuthHeaders
     })
     assert.strictEqual(updateOrderRes.status, 200)
     assert.strictEqual(updateOrderRes.body.order.status, "preparing")
 
-    // Delete order (cascades to order_items in PostgreSQL)
+    // Staff CANNOT delete order (403)
+    const staffDeleteOrderRes = await makeRequest({
+      method: "DELETE",
+      path: `/api/orders/${newOrderId}`,
+      headers: staffAuthHeaders
+    })
+    assert.strictEqual(staffDeleteOrderRes.status, 403)
+
+    // Customer cannot cancel preparing order (400)
+    const custCancelPreparingRes = await makeRequest({
+      method: "DELETE",
+      path: `/api/orders/${newOrderId}`,
+      headers: customerAuthHeaders
+    })
+    assert.strictEqual(custCancelPreparingRes.status, 400)
+
+    // Revert status to pending by admin so customer can cancel
+    await Orders.update({ status: "pending" }, { where: { id: newOrderId } })
+
+    // Customer CAN cancel own pending order (200)
     const deleteOrderRes = await makeRequest({
       method: "DELETE",
-      path: `/api/orders/${newOrderId}`
+      path: `/api/orders/${newOrderId}`,
+      headers: customerAuthHeaders
     })
     assert.strictEqual(deleteOrderRes.status, 200)
     const remainingItems = await Order_items.count({ where: { orderId: newOrderId } })
     assert.strictEqual(remainingItems, 0, "All order items must be removed via CASCADE in PostgreSQL")
-    console.log("✓ Orders & Order Items CRUD and cascading deletion verified in PostgreSQL")
+    console.log("✓ Orders & Order Items tracking, cancellation, and staff restrictions verified in PostgreSQL")
 
     // 7. Auth: Register, Login, Me
     console.log("\nTesting Auth Routes...")
