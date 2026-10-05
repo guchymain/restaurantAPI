@@ -114,6 +114,10 @@ const getOrderItems = async (req, res, next) => {
       throw new AppError("Order not found", 404)
     }
 
+    if (req.user && req.user.role === "customer" && order.userId !== req.user.id) {
+      throw new AppError("Forbidden. You can only view items of your own orders", 403)
+    }
+
     const items = await Order_items.findAll({
       where: { orderId: id },
       include: [
@@ -227,6 +231,13 @@ const addOrder = async (req, res, next) => {
 }
 
 const updateOrder = async (req, res, next) => {
+  if (req.user && req.user.role === "staff") {
+    return next(new AppError("Forbidden. Staff members are not permitted to update orders", 403))
+  }
+  if (req.user && req.user.role === "customer") {
+    return next(new AppError("Forbidden. Customers are not permitted to update orders directly", 403))
+  }
+
   const t = await sequelize.transaction()
   try {
     const id = Number(req.params.id)
@@ -295,10 +306,23 @@ const deleteOrder = async (req, res, next) => {
   try {
     const id = Number(req.params.id)
 
+    if (req.user && req.user.role === "staff") {
+      throw new AppError("Forbidden. Staff members are not permitted to delete orders", 403)
+    }
+
     const order = await Orders.findByPk(id)
 
     if (!order) {
       throw new AppError("Order not found", 404)
+    }
+
+    if (req.user && req.user.role === "customer") {
+      if (order.userId !== req.user.id) {
+        throw new AppError("Forbidden. You can only cancel your own orders", 403)
+      }
+      if (order.status !== "pending") {
+        throw new AppError("Only pending orders can be cancelled", 400)
+      }
     }
 
     const orderData = order.toJSON()
@@ -306,7 +330,7 @@ const deleteOrder = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: "Order deleted successfully",
+      message: req.user && req.user.role === "customer" ? "Order cancelled successfully" : "Order deleted successfully",
       order: orderData
     })
   } catch (error) {

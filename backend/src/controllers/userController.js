@@ -29,6 +29,11 @@ const getUsers = async (req, res, next) => {
 const getUser = async (req, res, next) => {
   try {
     const id = Number(req.params.id)
+
+    if (req.user && req.user.role === "customer" && req.user.id !== id) {
+      throw new AppError("Forbidden. You can only view your own profile", 403)
+    }
+
     const user = await Users.findByPk(id, {
       attributes: { exclude: ["password"] }
     })
@@ -75,6 +80,11 @@ const addUser = async (req, res, next) => {
 const updateUser = async (req, res, next) => {
   try {
     const id = Number(req.params.id)
+
+    if (req.user && (req.user.role === "customer" || req.user.role === "staff") && req.user.id !== id) {
+      throw new AppError("Forbidden. You can only update your own profile", 403)
+    }
+
     const user = await Users.findByPk(id)
 
     if (!user) {
@@ -91,7 +101,9 @@ const updateUser = async (req, res, next) => {
     if (name !== undefined) updateData.name = name
     if (email !== undefined) updateData.email = email
     if (phone !== undefined) updateData.phone = phone
-    if (role !== undefined) updateData.role = role
+    if (role !== undefined && req.user && req.user.role === "admin") {
+      updateData.role = role
+    }
     if (password !== undefined) {
       updateData.password = await bcrypt.hash(password, Number(process.env.SALT_ROUNDS) || 10)
     }
@@ -111,6 +123,11 @@ const updateUser = async (req, res, next) => {
 const deleteUser = async (req, res, next) => {
   try {
     const id = Number(req.params.id)
+
+    if (req.user && (req.user.role === "customer" || req.user.role === "staff") && req.user.id !== id) {
+      throw new AppError("Forbidden. You can only delete your own profile", 403)
+    }
+
     const user = await Users.findByPk(id)
 
     if (!user) {
