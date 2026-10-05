@@ -1,16 +1,57 @@
-# Restaurant Management System API
+# Savoria Restaurant Management System
 
-A RESTful API for managing users, categories, menu items, orders, and order items for a restaurant.
-
-Built with **Node.js**, **Express**, **PostgreSQL**, **Sequelize ORM**, **JWT**, **bcrypt**, and **Zod**.
+A full-stack restaurant management platform featuring an Express/PostgreSQL RESTful API backend and a responsive Next.js (App Router, Tailwind CSS) customer frontend.
 
 ---
 
-## Database & Architecture
+## Table of Contents
 
-The application uses **PostgreSQL** as its persistent relational database, managed via **Sequelize ORM** and **Sequelize CLI**.
+- [Overview](#overview)
+- [Tech Stack](#tech-stack)
+- [System Architecture & Database Schema](#system-architecture--database-schema)
+- [Backend Features & Security](#backend-features--security)
+- [Frontend Features & UI Experience](#frontend-features--ui-experience)
+- [Complete API Reference](#complete-api-reference)
+- [Project Directory Structure](#project-directory-structure)
+- [Installation & Setup](#installation--setup)
+- [Running the Application](#running-the-application)
+- [Testing & Quality Verification](#testing--quality-verification)
 
-### Database Schema & Relational Model
+---
+
+## Overview
+
+The **Savoria Restaurant Management System** delivers an end-to-end dining and ordering experience:
+- **Backend (`/backend`):** A robust Node.js/Express REST API utilizing PostgreSQL via Sequelize ORM with migrations, seeders, transactional ordering, JWT authentication, and strict Zod validation.
+- **Frontend (`/frontend`):** A modern Next.js 16 (App Router) web application styled with Tailwind CSS, delivering real-time search, category filtering, a slide-over cart drawer, and customer order tracking.
+
+---
+
+## Tech Stack
+
+### Backend
+- **Runtime:** Node.js (CommonJS)
+- **Framework:** Express.js 5
+- **Database:** PostgreSQL (relational storage with foreign key constraints)
+- **ORM:** Sequelize 6 & Sequelize CLI (migrations, seeders, associations)
+- **Validation:** Zod 4 (schema enforcement on all incoming requests)
+- **Authentication:** JSON Web Tokens (`jsonwebtoken`) & `bcrypt` password hashing
+- **Security & Utilities:** `cors`, `express-rate-limit`, `dotenv`
+
+### Frontend
+- **Framework:** Next.js 16 (App Router, JavaScript `.jsx`)
+- **Styling:** Tailwind CSS v4 (responsive warm neutral aesthetic with dark mode support)
+- **Icons:** Lucide React
+- **HTTP Client:** Axios (with request/response interceptors for Bearer auth)
+- **State Management:** React Context API (`AuthContext`, `CartContext`)
+
+---
+
+## System Architecture & Database Schema
+
+The database model is built on PostgreSQL with strict relational integrity and cascading rules.
+
+### Entity-Relationship Diagram
 
 ```text
                +------------------+
@@ -66,7 +107,7 @@ The application uses **PostgreSQL** as its persistent relational database, manag
 | | `name` | VARCHAR | NOT NULL | User's full name |
 | | `email` | VARCHAR | NOT NULL, UNIQUE | User's email address |
 | | `phone` | VARCHAR | NOT NULL | User's phone number |
-| | `password` | VARCHAR | NOT NULL | Bcrypt hashed password (**never returned in responses**) |
+| | `password` | VARCHAR | NOT NULL | Bcrypt hashed password (**never exposed in responses**) |
 | | `role` | VARCHAR | NOT NULL, DEFAULT `'customer'` | Role: `'customer'`, `'staff'`, `'admin'` |
 | **categories** | `id` | INTEGER | PRIMARY KEY, AUTO_INCREMENT | Category identifier |
 | | `name` | VARCHAR | NOT NULL, UNIQUE | Category name |
@@ -75,167 +116,198 @@ The application uses **PostgreSQL** as its persistent relational database, manag
 | | `name` | VARCHAR | NOT NULL | Item name |
 | | `description` | TEXT | DEFAULT `''` | Item description |
 | | `price` | DECIMAL(10, 2) | NOT NULL | Price in currency |
-| | `categoryId` | INTEGER | NOT NULL, FK -> `categories(id)` (`ON DELETE RESTRICT`) | Associated category |
+| | `categoryId` | INTEGER | NOT NULL, FK $\to$ `categories(id)` (`ON DELETE RESTRICT`) | Associated category |
 | | `isAvailable` | BOOLEAN | NOT NULL, DEFAULT `true` | In-stock status |
 | **orders** | `id` | INTEGER | PRIMARY KEY, AUTO_INCREMENT | Order identifier |
-| | `userId` | INTEGER | NOT NULL, FK -> `users(id)` (`ON DELETE CASCADE`) | Customer who placed order |
+| | `userId` | INTEGER | NOT NULL, FK $\to$ `users(id)` (`ON DELETE CASCADE`) | Customer who placed order |
 | | `status` | VARCHAR | NOT NULL, DEFAULT `'pending'` | Status: `'pending'`, `'preparing'`, `'ready'`, `'completed'`, `'cancelled'` |
 | | `totalAmount` | DECIMAL(10, 2) | NOT NULL, DEFAULT `0.00` | Grand total sum of all order items |
 | **order_items** | `id` | INTEGER | PRIMARY KEY, AUTO_INCREMENT | Order item identifier |
-| | `orderId` | INTEGER | NOT NULL, FK -> `orders(id)` (`ON DELETE CASCADE`) | Parent order reference |
-| | `menuItemId` | INTEGER | NOT NULL, FK -> `menu_items(id)` (`ON DELETE RESTRICT`) | Referencing menu item |
+| | `orderId` | INTEGER | NOT NULL, FK $\to$ `orders(id)` (`ON DELETE CASCADE`) | Parent order reference |
+| | `menuItemId` | INTEGER | NOT NULL, FK $\to$ `menu_items(id)` (`ON DELETE RESTRICT`) | Referencing menu item |
 | | `quantity` | INTEGER | NOT NULL, DEFAULT `1` | Number of items |
 | | `unitPrice` | DECIMAL(10, 2) | NOT NULL | Price per unit at purchase |
 | | `subtotal` | DECIMAL(10, 2) | NOT NULL | `quantity × unitPrice` |
 
 ---
 
-## Order Items Structure
+## Backend Features & Security
 
-An order contains multiple menu items properly connected via foreign keys:
-
-```text
-Order #1
- ├── Burger × 2  ($12.50 ea -> $25.00)
- ├── Pizza × 1   ($18.00 ea -> $18.00)
- └── Coke × 2    ($3.00 ea  -> $6.00)
-Total: $49.00
-```
-
-When an order is created (`POST /api/orders`), the API:
-1. Validates user and menu item existence.
-2. Performs all calculations within a **managed database transaction** (`sequelize.transaction()`).
-3. Inserts the order and bulk-inserts all `order_items`.
-4. Returns the fully populated order with nested items.
+1. **Transactional Order Processing:**
+   Orders and their associated line items are created atomically inside a managed Sequelize transaction (`sequelize.transaction()`). If any item is invalid or out of stock, the entire order rolls back cleanly.
+2. **Password & Credential Protection:**
+   - Passwords are encrypted with `bcrypt` (10 salt rounds).
+   - Overridden `Users.prototype.toJSON` strips `password` from all serialized outputs.
+   - Controllers explicitly exclude password fields (`attributes: { exclude: ['password'] }`).
+3. **Data Validation:**
+   Incoming payloads for every route are validated against strict Zod schemas before reaching business logic.
+4. **Cascades & Protection:**
+   Deleting a user or order cascades to related records, while deleting categories or menu items with existing relations is safely restricted.
+5. **CORS & Rate Limiting:**
+   Configured for cross-origin frontend requests with built-in API rate limiting.
 
 ---
 
-## Project Structure
+## Frontend Features & UI Experience
+
+1. **Dynamic Menu Browsing:**
+   - All categories and dishes are fetched dynamically from the database (`GET /api/categories`, `GET /api/menu`). No hardcoded items.
+   - Real-time instant search by dish name or description.
+   - Category filter pills for rapid menu filtering.
+2. **Interactive Cart Slide-Over:**
+   - Quantity stepper (+/-), remove item, clear cart, and live order summary calculations.
+   - Persisted across navigation within `CartContext`.
+3. **Customer Authentication:**
+   - Registration and sign-in dedicated strictly to customers (staff/admin controls are decoupled).
+   - Automatic JWT token management and localStorage persistence.
+4. **Orders & Receipt Tracking:**
+   - Authenticated-only orders view (`/orders` and `/orders/:id`).
+   - Live order status badges: `pending`, `preparing`, `ready`, `completed`, `cancelled`.
+   - Itemized digital receipt modal and single-order view.
+   - Customer-initiated order cancellation for pending orders.
+5. **Harmonious Theme Design:**
+   - Synchronized warm neutral tones (`bg-stone-100 dark:bg-stone-950`).
+   - Cards, navbar, and cart backgrounds blend seamlessly with the page surface.
+
+---
+
+## Complete API Reference
+
+All API routes are prefixed with `/api`.
+
+### Authentication & Users
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Public | Register customer account and obtain JWT |
+| `POST` | `/api/auth/login` | Public | Authenticate user and receive JWT |
+| `GET` | `/api/auth/me` | Authenticated | Retrieve current user profile |
+| `GET` | `/api/users` | Admin / Staff | List all users |
+| `GET` | `/api/users/:id` | Authenticated | Get user profile by ID |
+| `PUT` | `/api/users/:id` | Authenticated | Update user information |
+| `DELETE`| `/api/users/:id` | Admin | Delete user account (cascades orders) |
+
+### Categories
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/categories` | Public | List all culinary categories |
+| `GET` | `/api/categories/:id` | Public | Get single category with its menu items |
+| `POST` | `/api/categories` | Admin | Create new category (unique name required) |
+| `PUT` | `/api/categories/:id` | Admin | Update category name or description |
+| `DELETE`| `/api/categories/:id` | Admin | Delete category (restricted if items exist) |
+
+### Menu Items
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/menu` | Public | List all menu items (filter by `?categoryId=`) |
+| `GET` | `/api/menu/:id` | Public | Retrieve single menu item details |
+| `POST` | `/api/menu` | Admin | Add new dish to menu |
+| `PUT` | `/api/menu/:id` | Admin | Update dish details, price, or availability |
+| `DELETE`| `/api/menu/:id` | Admin | Delete menu item (restricted if part of orders) |
+
+### Orders
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/orders` | Authenticated | Create order with items (transactional) |
+| `GET` | `/api/orders` | Authenticated | List customer's orders (filter by `?status=`) |
+| `GET` | `/api/orders/:id` | Authenticated | Get single order with complete itemized receipt |
+| `GET` | `/api/orders/:id/items` | Authenticated | Retrieve line items for a specific order |
+| `PUT` | `/api/orders/:id` | Authenticated | Update order status or line items |
+| `DELETE`| `/api/orders/:id` | Authenticated | Cancel / delete order (cascades line items) |
+
+---
+
+## Project Directory Structure
 
 ```text
 RestaurantAssignment/
-├── backend/
+├── backend/                           # Express & PostgreSQL Backend
 │   ├── config/
-│   │   └── config.js              # Database configuration (development, test, production)
-│   ├── migrations/
+│   │   └── config.js                  # Database credentials & dialect configuration
+│   ├── migrations/                    # Database DDL migration scripts
 │   │   ├── 20261004162223-create-users.js
 │   │   ├── 20261004162705-create-categories.js
 │   │   ├── 20261004163042-create-menu-items.js
 │   │   ├── 20261004163100-create-orders.js
 │   │   └── 20261004163310-create-order-items.js
-│   ├── models/
-│   │   ├── index.js               # Sequelize initialization & model loader
-│   │   ├── users.js               # Users model & associations (safe toJSON)
-│   │   ├── categories.js          # Categories model & associations
-│   │   ├── menu_items.js          # Menu_items model & associations
-│   │   ├── orders.js              # Orders model & associations
-│   │   └── order_items.js         # Order_items model & associations
+│   ├── models/                        # Sequelize models & relational associations
+│   │   ├── index.js                   # Connection initialization & loader
+│   │   ├── users.js                   # Users model & password strip logic
+│   │   ├── categories.js              # Categories model
+│   │   ├── menu_items.js              # Menu_items model
+│   │   ├── orders.js                  # Orders model
+│   │   └── order_items.js             # Order_items model
 │   ├── seeders/
 │   │   └── 20261004170000-demo-restaurant-data.js
 │   ├── src/
-│   │   ├── controllers/
-│   │   │   ├── authController.js
-│   │   │   ├── categoryController.js
-│   │   │   ├── menuItemController.js
-│   │   │   ├── orderController.js
-│   │   │   └── userController.js
-│   │   ├── routes/
-│   │   │   ├── auth.route.js
-│   │   │   ├── category.route.js
-│   │   │   ├── menuItem.route.js
-│   │   │   ├── order.route.js
-│   │   │   └── user.route.js
-│   │   ├── middleware/
-│   │   │   ├── authentication.js
-│   │   │   ├── authorization.js
-│   │   │   ├── error.js
-│   │   │   ├── logger.js
-│   │   │   ├── notFound.js
-│   │   │   ├── rateLimiter.js
-│   │   │   └── validate.js
-│   │   ├── validators/
-│   │   │   ├── auth.js
-│   │   │   ├── category.js
-│   │   │   ├── common.js
-│   │   │   ├── menuItem.js
-│   │   │   ├── order.js
-│   │   │   └── user.js
-│   │   ├── utils/
-│   │   │   ├── appError.js
-│   │   │   └── helpers.js
-│   │   ├── app.js                 # Express app setup with CORS enabled
-│   │   └── server.js
+│   │   ├── controllers/               # Business logic controllers
+│   │   ├── middleware/                # Auth, Zod validation, error handler, rate limit
+│   │   ├── routes/                    # Express route declarations
+│   │   ├── validators/                # Zod schemas for request validation
+│   │   ├── app.js                     # Express app configuration & middleware
+│   │   └── server.js                  # HTTP server bootstrap
 │   ├── test/
-│   │   └── api.test.js
-│   ├── .env
-│   ├── .env.example
-│   ├── package.json
-│   └── package-lock.json
-├── frontend/                      # (Future React / Next.js application)
-├── .env.example                   # Shared / template env
-├── .gitignore                     # Root gitignore
-├── package.json                   # Root workspace orchestration scripts
+│   │   └── api.test.js                # Integration test suite
+│   ├── .env                           # Local environment configuration
+│   ├── .env.example                   # Environment variable template
+│   └── package.json
+├── frontend/                          # Next.js 16 (App Router) Frontend
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── globals.css            # Synchronized background color tokens
+│   │   │   ├── layout.jsx             # Root layout with Navbar, CartDrawer, and Footer
+│   │   │   ├── page.jsx               # Menu page with real-time search & filters
+│   │   │   ├── login/page.jsx         # Customer Sign In & Registration portal
+│   │   │   ├── orders/page.jsx        # Protected order history & receipt view
+│   │   │   └── orders/[id]/page.jsx   # Detailed order tracking & status view
+│   │   ├── components/
+│   │   │   ├── Navbar.jsx             # Navigation header & cart badge
+│   │   │   ├── MenuCard.jsx           # Dish card with quantity stepper & add to cart
+│   │   │   ├── CartDrawer.jsx         # Slide-over cart and order checkout
+│   │   │   ├── CategoryTabs.jsx       # Dynamic category filtering tabs
+│   │   │   └── StatusBadge.jsx        # Order status badges with dark mode support
+│   │   ├── context/
+│   │   │   ├── AuthContext.jsx        # Customer auth state & token persistence
+│   │   │   └── CartContext.jsx        # Cart state & item management
+│   │   └── lib/
+│   │       └── api.js                 # Axios client with JWT interceptor
+│   ├── public/                        # Static assets
+│   ├── next.config.mjs
+│   └── package.json
+├── .gitignore                         # Repository gitignore
+├── package.json                       # Root workspace orchestration scripts
 └── README.md
 ```
 
 ---
 
-## Security: Password Protection
+## Installation & Setup
 
-> [!IMPORTANT]
-> **Passwords are NEVER returned in API responses**:
-> - Password hashes are stored using **bcrypt** with configurable salt rounds.
-> - The `Users` model defines an overridden `toJSON()` method that automatically strips the `password` field from serialized objects.
-> - Controller queries explicitly exclude passwords (`attributes: { exclude: ['password'] }`).
+### Prerequisites
+- **Node.js:** v18.0.0 or higher
+- **PostgreSQL:** Running instance with a database created (e.g., `restaurant_db`)
 
----
+### 1. Clone & Install Dependencies
 
-## API Endpoints
+From the workspace root, install backend and frontend dependencies:
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| **Users** | | |
-| `POST` | `/api/users` | Create user (password hashed, never returned) |
-| `GET` | `/api/users` | Get all users |
-| `GET` | `/api/users/:id` | Get single user |
-| `PUT` | `/api/users/:id` | Update user |
-| `DELETE`| `/api/users/:id` | Delete user (cascades orders) |
-| **Categories** | | |
-| `POST` | `/api/categories` | Create category (unique name) |
-| `GET` | `/api/categories` | Get all categories |
-| `GET` | `/api/categories/:id` | Get category with menu items |
-| `PUT` | `/api/categories/:id` | Update category |
-| `DELETE`| `/api/categories/:id` | Delete category (protected if items exist) |
-| **Menu Items** | | |
-| `POST` | `/api/menu-items` | Create menu item (must belong to category) |
-| `GET` | `/api/menu-items` | Get menu items (optional `?categoryId=`) |
-| `GET` | `/api/menu-items/:id` | Get single menu item |
-| `PUT` | `/api/menu-items/:id` | Update menu item |
-| `DELETE`| `/api/menu-items/:id` | Delete menu item (protected if in orders) |
-| **Orders & Order Items** | | |
-| `POST` | `/api/orders` | Create order with items (transactional) |
-| `GET` | `/api/orders` | Get orders with populated items & menu details |
-| `GET` | `/api/orders/:id` | Get single order with complete item tree |
-| `GET` | `/api/orders/:id/items` | Get only items of an order |
-| `PUT` | `/api/orders/:id` | Update order status or items |
-| `DELETE`| `/api/orders/:id` | Delete order (cascades order_items) |
-| **Authentication** | | |
-| `POST` | `/api/auth/register` | Register new user and receive JWT token |
-| `POST` | `/api/auth/login` | Login and receive JWT token |
-| `GET` | `/api/auth/me` | Get authenticated user profile |
+```bash
+# Install backend dependencies
+cd backend && npm install && cd ..
 
----
+# Install frontend dependencies
+cd frontend && npm install && cd ..
+```
 
-## Setup & Running
+### 2. Configure Environment Variables
 
-### 1. Configure Environment Variables
-Copy `.env.example` to `.env` and configure your PostgreSQL database credentials:
+Create `backend/.env` based on `backend/.env.example`:
 
 ```env
 PORT=
 JWT_SECRET=
 JWT_EXPIRES_IN=
 SALT_ROUNDS=
+
 DB_USERNAME=
 DB_PASSWORD=
 DB_DATABASE=
@@ -244,87 +316,79 @@ DB_PORT=
 DB_DIALECT=
 ```
 
-### 2. Run Database Migrations
-Run the migrations to create all tables with foreign keys and constraints:
+Optionally, create `frontend/.env.local`:
 
-From the workspace root:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+### 3. Run Migrations & Seed Database
+
+Run migrations to create all database tables and seed initial data:
+
 ```bash
+# From workspace root:
 npm run db:migrate
-```
-Or directly inside `backend/`:
-```bash
-cd backend
-npm run db:migrate
-```
-
-### 3. Seed Database
-Seed initial users, categories, menu items, and Order #1:
-
-From the workspace root:
-```bash
-npm run db:seed
-```
-Or directly inside `backend/`:
-```bash
-cd backend
 npm run db:seed
 ```
 
-### 4. Start the Application
-From the workspace root:
+Or inside `backend/`:
+
 ```bash
-# Development mode with auto-reload
+cd backend
+npm run db:migrate
+npm run db:seed
+```
+
+---
+
+## Running the Application
+
+### Start Backend Server
+
+```bash
+# From root (dev mode with hot reload):
 npm run dev:backend
 
-# Production / Standard mode
-npm run start:backend
+# Or from backend/:
+cd backend && npm run dev
 ```
+The REST API will be available at `http://localhost:5000`.
 
-Or directly inside `backend/`:
+### Start Frontend Application
+
+In a separate terminal:
+
 ```bash
-cd backend
-npm run dev      # or npm start
-```
+# From root:
+npm run dev:frontend
 
-### 5. Run Automated Tests
-From the workspace root:
+# Or from frontend/:
+cd frontend && npm run dev
+```
+The Next.js customer application will be available at `http://localhost:3000`.
+
+---
+
+## Testing & Quality Verification
+
+### Run Backend Integration Tests
+Executes the comprehensive PostgreSQL integration test suite:
+
 ```bash
 npm run test:backend
 ```
 
-Or directly inside `backend/`:
+### Lint Frontend
+Checks for code quality and Next.js / ESLint rules:
+
 ```bash
-cd backend
-npm test
-```
-
-### 6. Frontend Development (Next.js)
-The frontend application lives in [`frontend/`](file:///home/mann/Desktop/New%20Folder/Backend/wk3/RestaurantAssignment/frontend).
-
-From the workspace root:
-```bash
-# Start Next.js development server (http://localhost:3000)
-npm run dev:frontend
-
-# Build frontend for production
-npm run build:frontend
-
-# Start production server
-npm run start:frontend
-
-# Lint frontend
 npm run lint:frontend
 ```
 
-Or directly inside `frontend/`:
+### Build Frontend
+Verifies production Turbopack compilation:
+
 ```bash
-cd frontend
-npm run dev
+npm run build:frontend
 ```
-
-### 7. Connecting Frontend & Backend
-- Backend REST API runs on `http://localhost:5000` with **CORS enabled**.
-- Next.js frontend runs on `http://localhost:3000`.
-- API Base URL: `http://localhost:5000/api`
-- Authentication: Pass JWT in header `Authorization: Bearer <token>`
-
